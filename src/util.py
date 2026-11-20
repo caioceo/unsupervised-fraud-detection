@@ -127,3 +127,71 @@ def calculate_clustering_metrics(
     }
 
 
+def evaluate_dbscan_metrics(
+    X: np.ndarray,
+    dbscan_model,
+    min_samples: int = 15,
+) -> dict[str, float | int]:
+    labels = dbscan_model.labels_
+    valid_mask = labels != -1
+    noise_mask = labels == -1
+    n_total = len(labels)
+    n_clusters = len(set(labels[valid_mask]))
+    n_noise = int(noise_mask.sum())
+    n_core = len(dbscan_model.core_sample_indices_)
+    n_border = int(valid_mask.sum()) - n_core
+
+    sil_clusters = round(float(silhouette_score(X[valid_mask], labels[valid_mask])), 4) if n_clusters > 1 else 0.0
+    sil_global = round(float(silhouette_score(X, labels)), 4) if len(set(labels)) > 1 else 0.0
+    db_clusters = round(float(davies_bouldin_score(X[valid_mask], labels[valid_mask])), 4) if n_clusters > 1 else 0.0
+    ch_clusters = round(float(calinski_harabasz_score(X[valid_mask], labels[valid_mask])), 1) if n_clusters > 1 else 0.0
+
+    nbrs = NearestNeighbors(n_neighbors=min_samples).fit(X)
+    dists, _ = nbrs.kneighbors(X)
+    k_dists = dists[:, min_samples - 1]
+    mean_kdist_normal = float(k_dists[valid_mask].mean())
+    mean_kdist_noise = float(k_dists[noise_mask].mean()) if n_noise > 0 else 0.0
+    isolation_ratio = round(mean_kdist_noise / mean_kdist_normal, 2) if mean_kdist_normal > 0 else 0.0
+
+    return {
+        "n_clusters_densos": n_clusters,
+        "qtd_ruidos_anomalias": n_noise,
+        "taxa_ruido_pct": round((n_noise / n_total) * 100, 2),
+        "qtd_core_points": n_core,
+        "pct_core_points": round((n_core / n_total) * 100, 2),
+        "qtd_border_points": n_border,
+        "silhouette_nucleos_densos": sil_clusters,
+        "silhouette_global_com_ruido": sil_global,
+        "davies_bouldin_nucleos": db_clusters,
+        "calinski_harabasz_nucleos": ch_clusters,
+        "dist_media_k_vizinho_normal": round(mean_kdist_normal, 4),
+        "dist_media_k_vizinho_anomalia": round(mean_kdist_noise, 4),
+        "razao_isolamento_anomalia": isolation_ratio,
+    }
+
+
+def evaluate_gmm_metrics(
+    X: np.ndarray,
+    gmm_model,
+    labels: np.ndarray,
+    probs: np.ndarray,
+) -> dict[str, float | int]:
+    eps_prob = np.clip(probs, 1e-12, 1.0)
+    entropy_per_sample = -np.sum(eps_prob * np.log(eps_prob), axis=1)
+    mean_entropy = float(np.mean(entropy_per_sample))
+    max_probs = probs.max(axis=1)
+
+    return {
+        "n_componentes": int(gmm_model.n_components),
+        "bic": round(float(gmm_model.bic(X)), 1),
+        "aic": round(float(gmm_model.aic(X)), 1),
+        "log_likelihood_media": round(float(gmm_model.score(X)), 4),
+        "entropia_media_shannon": round(mean_entropy, 4),
+        "probabilidade_max_media": round(float(max_probs.mean()), 4),
+        "clientes_alta_certeza_ge_80": int((max_probs >= 0.80).sum()),
+        "clientes_transicao_lt_80": int((max_probs < 0.80).sum()),
+        "taxa_transicao_pct": round(float((max_probs < 0.80).mean() * 100), 2),
+        "silhouette": round(float(silhouette_score(X, labels)), 4),
+        "davies_bouldin": round(float(davies_bouldin_score(X, labels)), 4),
+        "calinski_harabasz": round(float(calinski_harabasz_score(X, labels)), 1),
+    }
