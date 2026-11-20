@@ -36,3 +36,21 @@ def configure_plot_style() -> None:
     })
 
 
+def load_data(file_path: str = "data/raw/base04_cartao_alta_dimensao.csv") -> pd.DataFrame:
+    file = Path(file_path)
+    if file.exists():
+        return pd.read_csv(file)
+    raise FileNotFoundError(f"Arquivo nao encontrado: {file.resolve()}")
+
+
+def show_info(df: pd.DataFrame) -> None:
+    print(f"Dimensoes da Base: {df.shape[0]} linhas x {df.shape[1]} colunas")
+    print(f"Total de Valores Ausentes (Nulos): {int(df.isnull().sum().sum())}")
+    print("\nContagem de Tipos de Variaveis:")
+    print(df.dtypes.value_counts().to_string())
+    print("\nValores Nulos por Coluna:")
+    print(df.isnull().sum().to_string())
+    print("\nEstrutura Detalhada (info):")
+    df.info()
+
+
