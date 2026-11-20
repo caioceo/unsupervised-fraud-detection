@@ -100,3 +100,30 @@ def plot_hist_and_box(
     plt.show()
 
 
+def calculate_clustering_metrics(
+    X: np.ndarray,
+    labels: np.ndarray,
+    model_name: str,
+    extra_count: int | None = None,
+) -> dict[str, float | int | str]:
+    valid_mask = labels != -1
+    n_clusters = len(set(labels[valid_mask]))
+    n_noise = int((labels == -1).sum())
+
+    if n_clusters > 1:
+        sil = round(float(silhouette_score(X[valid_mask], labels[valid_mask])), 4)
+        db = round(float(davies_bouldin_score(X[valid_mask], labels[valid_mask])), 4)
+        ch = round(float(calinski_harabasz_score(X[valid_mask], labels[valid_mask])), 1)
+    else:
+        sil, db, ch = 0.0, 0.0, 0.0
+
+    return {
+        "algoritmo": model_name,
+        "n_clusters": int(n_clusters),
+        "silhouette": sil,
+        "davies_bouldin": db,
+        "calinski_harabasz": ch,
+        "ruidos_ou_transicao": int(extra_count if extra_count is not None else n_noise),
+    }
+
+
