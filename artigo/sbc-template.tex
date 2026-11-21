@@ -131,5 +131,144 @@ Como a base não possui rótulos de fraude, a qualidade dos agrupamentos é vali
   \item \textbf{BIC, AIC e Certeza a Posteriori (GMM)}: o BIC e o AIC medem o ajuste probabilístico penalizando o excesso de parâmetros, enquanto $\overline{P_{\max}}$ mede a probabilidade média do grupo vencedor. \textit{Como ler}: **quanto menor o BIC/AIC, melhor** é o número de grupos sem sobreajuste; clientes com $P_{\max} < 0,80$ indicam perfis híbridos na fronteira entre dois hábitos de consumo.
 \end{itemize}
 
+\section{Resultados e Discussão}
+
+A Figura~\ref{fig:hyperparams} consolida a seleção de hiperparâmetros dos três modelos no espaço PCA. No \textit{baseline} K-Means, a curva WCSS apresenta cotovelo em **$k = 4$** ($14,96$ mil) e o índice de Calinski-Harabasz atinge seu máximo global ($4.244,4$), com Silhouette de $0,4183$. No GMM, o Critério de Informação Bayesiano (BIC) decresce até atingir seu ponto mínimo exatamente em **$k = 4$ ($49.963,7$)**, voltando a subir em $k = 5$ ($49.988,6$). No DBSCAN, a curva \textit{k-distance} para $k = 15$ vizinhos identifica o joelho de inflexão da cauda em **$\varepsilon = 0,75$**, isolando **$232$ clientes ($5,00\%$ da base limpa) como anomalias espaciais ($\text{cluster} = -1$)**.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\columnwidth]{../imagens/fig08_kmeans_cotovelo.png}\\[3pt]
+  \includegraphics[width=0.48\columnwidth]{../imagens/fig09_dbscan_kdistance.png}\hfill
+  \includegraphics[width=0.48\columnwidth]{../imagens/fig10_gmm_bic_aic.png}
+  \caption{Topo: Método do Cotovelo e Calinski-Harabasz no K-Means ($k=4$). Base esq.: curva \textit{k-distance} do DBSCAN ($\varepsilon=0,75$). Base dir.: seleção de $k=4$ pelo BIC no GMM.}
+  \label{fig:hyperparams}
+\end{figure}
+
+A Tabela~\ref{tab:metrics_comp} resume as métricas de validação dos três modelos:
+\begin{itemize}
+  \item \textbf{Métricas Específicas do DBSCAN}: Além das métricas geométricas sobre os núcleos densos (Silhouette $= 0,4462$, Davies-Bouldin $= 0,7746$ e Calinski-Harabasz $= 3.694,5$, frente ao Silhouette global com ruído de $0,3621$), avaliamos a **Taxa de Ruído** ($5,00\%$, $232$ anomalias), a **Proporção de \textit{Core Points}** ($84,65\%$, $3.931$ pontos centrais e $481$ pontos de borda) e a **Razão de Isolamento Espacial** ($d_{15}(\text{anomalia}) / d_{15}(\text{normal}) = 2,21\times$, pois a distância média ao $15^\circ$ vizinho salta de $0,4672$ nos clientes normais para $1,0328$ nas anomalias).
+  \item \textbf{Métricas Específicas do GMM ($k = 4$)}: Além de Silhouette ($0,4095$), Davies-Bouldin ($0,8992$) e Calinski-Harabasz ($4.088,1$), o ajuste probabilístico é validado pelo **BIC** ($49.963,7$), **AIC** ($49.712,4$), **Log-Verossimilhança Média** ($-5,3375$ por amostra), **Entropia Média de Shannon** ($H = 0,1042$, indicando baixa incerteza global), **Certeza Média a Posteriori** ($\overline{P_{\max}} = 95,46\%$) e **Taxa de Clientes em Transição** ($4,16\%$, $193$ clientes com $P_{\max} < 0,80$).
+\end{itemize}
+
+\begin{table}[htbp]
+  \centering
+  \caption{Métricas de validação interna e detecção de ruídos/transições no espaço PCA (3D).}
+  \label{tab:metrics_comp}
+  \resizebox{\columnwidth}{!}{%
+  \begin{tabular}{lccccc}
+    \toprule
+    \textbf{Modelo} & \textbf{Grupos} & \textbf{Silhouette} & \textbf{Davies-Bouldin} & \textbf{Calinski-Harabasz} & \textbf{Anomalias / Transição} \\
+    \midrule
+    K-Means (\textit{Baseline}) & $4$ & $0,4183$ & $0,8796$ & $4.244,4$ & $0$ (partição rígida) \\
+    DBSCAN ($\varepsilon=0,75, ms=15$) & $2$ (+ruído) & $0,4462^*$ & $0,7746^*$ & $3.694,5^*$ & $232$ ruídos ($5,00\%$) \\
+    GMM ($k=4$, \textit{full cov.}) & $4$ & $0,4095$ & $0,8992$ & $4.088,1$ & $193$ híbridos ($P_{\max}<0,80$) \\
+    \bottomrule
+  \end{tabular}%
+  }
+  \footnotesize{\\ $^*$Métricas do DBSCAN avaliadas sobre os pontos pertencentes aos núcleos densos ($\text{cluster} \neq -1$).}
+\end{table}
+
+\begin{figure*}[htbp]
+  \centering
+  \includegraphics[width=0.96\textwidth]{../imagens/fig11_comparacao_clusters_pca2d.png}
+  \caption{Projeção no plano $\text{PC1} \times \text{PC2}$ ($52,3\%$ da variância): (a) partição rígida do K-Means; (b) isolamento das 232 anomalias periféricas ($\text{cluster} = -1$) pelo DBSCAN; e (c) elipses do GMM com os 193 clientes em transição probabilística ($P_{\max} < 0,80$).}
+  \label{fig:pca_2d_comp}
+\end{figure*}
+
+A projeção 2D no espaço PCA (Figura~\ref{fig:pca_2d_comp}) e o cruzamento das variáveis originais na Tabela~\ref{tab:profiles} revelam a estrutura operacional dos quatro segmentos do GMM e das anomalias do DBSCAN:
+\begin{itemize}
+  \item \textbf{G0 -- Alto Consumo Internacional ($n = 1.148$, $24,7\%$)}: Maior gasto mensal (R\$ $6.977,32$), maior ticket médio (R\$ $293,67$), alta utilização do limite ($66,94\%$) e $22,24\%$ de compras internacionais, sem contestações ($0,00$) nem atrasos ($0,05$), mas com uso relevante de pagamento mínimo ($22,50\%$).
+  \item \textbf{G1 -- Veteranos Digitais e Saques ($n = 1.084$, $23,3\%$)}: Contas mais antigas ($79,34$ meses), maior limite (R\$ $14.762,08$), maior score ($762,52$) e $86,95\%$ de pagamento total. Concentram $73,31\%$ das compras online com ticket baixo (R\$ $45,17$), mas lideram em saques no crédito (R\$ $727,23$/ano), taxa de estorno ($7,81\%$) e contestações ($1,22$/ano), indicando exposição a clonagem digital em e-commerce.
+  \item \textbf{G2 -- Varejo com Instabilidade Cadastral ($n = 1.194$, $25,7\%$)}: Menor limite (R\$ $6.879,22$) e compras frequentes ($34,30$/mês), porém registra a **maior média de alterações cadastrais ($3,19$/ano)** combinada a contestações ($1,21$/ano) e compras na madrugada ($8,42\%$), assinatura clássica de tomada de conta (\textit{Account Takeover}).
+  \item \textbf{G3 -- Jovens Noturnos e Rotativo ($n = 1.218$, $26,2\%$)}: Contas recentes ($20,52$ meses), menor pagamento integral ($43,38\%$) e **maior proporção de compras na madrugada ($13,82\%$)** com $2,42$ alterações cadastrais/ano.
+  \item \textbf{Anomalias DBSCAN ($-1$, $n = 232$, $5,0\%$)**: Espalhadas transversalmente pelos quatro grupos ($55$ do G0, $86$ do G1, $53$ do G2 e $38$ do G3), combinam a maior velocidade transacional ($42,22$ compras/30d), o maior uso de pagamento mínimo ($26,38\%$), limites elevados (R\$ $12.605,78$) e alto volume simultâneo de saques no crédito (R\$ $536,24$) e estornos (R\$ $446,17$).
+\end{itemize}
+
+\begin{table*}[htbp]
+  \centering
+  \caption{Perfil médio das variáveis originais nos quatro segmentos do GMM e no lote de anomalias isolado pelo DBSCAN ($-1$).}
+  \label{tab:profiles}
+  \resizebox{0.96\textwidth}{!}{%
+  \begin{tabular}{lccccc}
+    \toprule
+    \textbf{Variável Original (Média)} & \textbf{G0: Alto Consumo Int.} & \textbf{G1: Veteranos Digitais} & \textbf{G2: Varejo / Troca Cad.} & \textbf{G3: Jovens Noturnos} & \textbf{DBSCAN (-1): Anomalias} \\
+    \midrule
+    Clientes ($n$ / $\%$) & $1.148$ ($24,7\%$) & $1.084$ ($23,3\%$) & $1.194$ ($25,7\%$) & $1.218$ ($26,2\%$) & $232$ ($5,0\%$ transversal) \\
+    Limite total (R\$) / Uso ($\%$) & $8.967,90$ / $\mathbf{66,94\%}$ & $\mathbf{14.762,08}$ / $21,05\%$ & $6.879,22$ / $20,68\%$ & $8.608,66$ / $37,73\%$ & $12.605,78$ / $33,69\%$ \\
+    Gasto 3m (R\$) / Ticket médio (R\$) & $\mathbf{6.977,32}$ / $\mathbf{293,67}$ & $1.248,71$ / $45,17$ & $1.660,81$ / $57,32$ & $2.961,92$ / $196,33$ & $3.035,25$ / $147,23$ \\
+    Transações 30d ($n$) / Idade (meses) & $28,24$ / $47,07$ & $32,93$ / $\mathbf{79,34}$ & $34,30$ / $41,48$ & $17,72$ / $20,52$ & $\mathbf{42,22}$ / $66,68$ \\
+    Pag. total ($\%$) / Pag. mínimo ($\%$) & $59,00\%$ / $22,50\%$ & $\mathbf{86,95\%}$ / $14,60\%$ & $56,72\%$ / $18,17\%$ & $43,38\%$ / $7,20\%$ & $65,51\%$ / $\mathbf{26,38\%}$ \\
+    Compras online / Internacionais ($\%$) & $46,39\%$ / $\mathbf{22,24\%}$ & $\mathbf{73,31\%}$ / $2,63\%$ & $32,63\%$ / $3,30\%$ & $27,11\%$ / $6,82\%$ & $48,75\%$ / $8,43\%$ \\
+    Compras madrugada ($\%$) / Trocas cad. ($n$) & $4,23\%$ / $0,86$ & $2,56\%$ / $1,27$ & $8,42\%$ / $\mathbf{3,19}$ & $\mathbf{13,82\%}$ / $2,42$ & $6,29\%$ / $1,90$ \\
+    Contestações ($n$) / Taxa estorno ($\%$) & $0,00$ / $1,21\%$ & $\mathbf{1,22}$ / $\mathbf{7,81\%}$ & $1,21$ / $4,24\%$ & $0,13$ / $2,32\%$ & $1,05$ / $4,49\%$ \\
+    Saques crédito 12m (R\$) / Score interno & $114,59$ / $471,77$ & $\mathbf{727,23}$ / $\mathbf{762,52}$ & $346,55$ / $618,02$ & $84,92$ / $541,18$ & $536,24$ / $619,65$ \\
+    \bottomrule
+  \end{tabular}%
+  }
+\end{table*}
+
+\section{Conclusão}
+
+A aplicação da metodologia KDD à Base 04 comprovou que a eliminação de colinearidade ($|r| > 0,90$), o filtro de extremos ($4,0 \times \text{IQR}$), o escalonamento com \texttt{RobustScaler} e a redução via PCA são essenciais para viabilizar o agrupamento em alta dimensão. A atuação conjunta do **DBSCAN** e do **GMM** supera o \textit{baseline} K-Means ao separar a detecção de anomalias da segmentação elíptica probabilística.
+
+Traduzimos os achados técnicos em **quatro ações práticas contra fraudes** para a operadora:
+\begin{enumerate}
+  \item \textbf{Auditoria e Step-Up Authentication (Anomalias DBSCAN $-1$ e Extremos)}: Exigir biometria facial e \textit{3D-Secure 2.0} para os $232$ clientes isolados pelo DBSCAN e os $356$ outliers extremos sempre que a frequência superar $40$ transações/30d combinada a saques no crédito acima de R\$ $500$.
+  \item \textbf{Quarentena Pós-Alteração Cadastral (Grupos 2 e 3)}: Implantar trava preventiva de $24$ horas após alteração de telefone, endereço ou dispositivo nos clientes do G2 ($3,19$ trocas/ano) e G3 ($13,82\%$ de compras na madrugada), bloqueando transações entre $00\text{h}$ e $06\text{h}$ sem validação por token para mitigar \textit{Account Takeover}.
+  \item \textbf{Cartão Virtual com CVV Dinâmico (Grupo 1)}: Incentivar o uso obrigatório de cartão virtual temporário para o G1 ($73,31\%$ de compras online e $7,81\%$ de taxa de estorno), protegendo clientes antigos e de alto limite (R\$ $14,76$ mil) contra vazamentos em e-commerce sem reduzir sua aprovação.
+  \item \textbf{Política de Limite Orientada por Probabilidades do GMM (Grupo 0 e Híbridos)}: Para os $193$ clientes em zona de transição ($P_{\max} < 0,80$), automatizar a concessão de limite apenas quando a probabilidade mensal $P(\text{G0}) + P(\text{G1})$ superar $80\%$, bloqueando aumentos para contas que migrarem em direção ao G2 ou G3.
+\end{enumerate}
+
+{\footnotesize
+\begin{thebibliography}{9}
+\setlength{\itemsep}{1pt}
+
+\bibitem{dempster1977}
+Dempster, A.~P., Laird, N.~M., and Rubin, D.~B. (1977).
+\newblock Maximum likelihood from incomplete data via the {EM} algorithm.
+\newblock {\em Journal of the Royal Statistical Society: Series B}, 39(1):1--22.
+
+\bibitem{ester1996}
+Ester, M., Kriegel, H.-P., Sander, J., and Xu, X. (1996).
+\newblock A density-based algorithm for discovering clusters in large spatial databases with noise.
+\newblock In {\em Proc. of KDD-96}, pages 226--231. AAAI Press.
+
+\bibitem{esteves2025}
+Esteves, L.~M. and Gioia, H.~R. (2025).
+\newblock Segmentação de clientes financeiros por clusterização e aprendizado não supervisionado (Segmentação estatística de clientes bancários por padrões comportamentais).
+\newblock {\em Revista E\&S}. Disponível em: \url{https://revistaes.com.br/resumo-executivo/segmentacao-estatistica-de-clientes-bancarios-por-padroes-comportamentais}.
+
+\bibitem{fayyad1996}
+Fayyad, U., Piatetsky-Shapiro, G., and Smyth, P. (1996).
+\newblock From data mining to knowledge discovery in databases.
+\newblock {\em AI Magazine}, 17(3):37--54.
+
+\bibitem{jolliffe2002}
+Jolliffe, I.~T. (2002).
+\newblock {\em Principal Component Analysis}.
+\newblock Springer, New York, 2nd edition.
+
+\bibitem{macqueen1967}
+MacQueen, J. (1967).
+\newblock Some methods for classification and analysis of multivariate observations.
+\newblock In {\em Proc. 5th Berkeley Symp. on Math. Statistics and Probability}, volume~1, pages 281--297.
+
+\bibitem{reynolds2009}
+Reynolds, D.~A. (2009).
+\newblock Gaussian mixture models.
+\newblock {\em Encyclopedia of Biometrics}, pages 659--663. Springer.
+
+\bibitem{rousseeuw1987}
+Rousseeuw, P.~J. (1987).
+\newblock Silhouettes: A graphical aid to the interpretation and validation of cluster analysis.
+\newblock {\em J. Comput. Appl. Math.}, 20:53--65.
+
+\bibitem{santos2023}
+Santos, R.~P.~d. (2023).
+\newblock Segmentação comportamental de clientes usando agrupamento automático de dados.
+\newblock TCC, ICT-UNIFESP, São José dos Campos. Disponível em: \url{https://repositorio.unifesp.br/items/7efdd05c-afa7-4111-aaa9-b62e1fba4e0b}.
+
+\end{thebibliography}
+}
 
 \end{document}
