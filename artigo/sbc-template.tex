@@ -1,0 +1,135 @@
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{hyperref}
+
+\geometry{a4paper, top=1.7cm, bottom=1.7cm, left=1.5cm, right=1.5cm, columnsep=0.6cm}
+\captionsetup{font=footnotesize, labelfont=bf, skip=3pt}
+\setlist[itemize]{noitemsep, topsep=2pt, leftmargin=*}
+\setlist[enumerate]{noitemsep, topsep=2pt, leftmargin=*}
+\titlespacing*{\section}{0pt}{8pt}{4pt}
+\titlespacing*{\subsection}{0pt}{6pt}{3pt}
+\setlength{\textfloatsep}{7pt}
+\setlength{\floatsep}{5pt}
+\setlength{\intextsep}{5pt}
+\setlength{\abovecaptionskip}{3pt}
+\setlength{\belowcaptionskip}{2pt}
+
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+\sloppy
+
+\title{\large\textbf{Detecção Não Supervisionada de Fraudes e Segmentação Comportamental em Cartões de Crédito de Alta Dimensão via Metodologia KDD}}
+
+\author{
+  \normalsize\textbf{Thiago Domingos V. R. dos Santos, Enzo, Caio}\\
+  \small Ciência de Dados e Aprendizado de Máquina -- Repositório: \url{https://github.com/caioceo/unsupervised-fraud-detection}
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+\vspace{-0.4cm}
+
+\begin{abstract}
+  \noindent\footnotesize Credit card operators process thousands of unlabeled transactions daily, requiring unsupervised methods to segment consumption profiles and isolate fraudulent anomalies. This work applies the Knowledge Discovery in Databases (KDD) methodology to an exclusive high-dimensional dataset (\texttt{base04\_cartao\_alta\_dimensao.csv}, $N = 5{,}000$ clients, $37$ attributes). Preprocessing comprises One-Hot Encoding for nominal categories, Pearson correlation pruning ($|r| > 0.90$, removing $8$ collinear features), extreme outlier filtering ($4.0 \times \text{IQR}$, isolating $356$ records), scaling via \texttt{RobustScaler}, and dimensionality reduction with PCA (retaining $64.43\%$ of variance in $3$ components). Three paradigms are compared: K-Means as baseline ($k = 4$, Calinski-Harabasz $= 4{,}244.4$, Silhouette $= 0.4183$), DBSCAN for density-based fraud detection ($\varepsilon = 0.75$, $\text{min\_samples} = 15$, isolating $232$ anomalies), and Gaussian Mixture Models (GMM, $k = 4$, $\text{BIC} = 49{,}963.7$) for probabilistic soft clustering, revealing four behavioral segments and $193$ hybrid clients ($P_{\max} < 0.80$).
+\end{abstract}
+
+\vspace{0.1cm}
+\noindent\footnotesize\textbf{Resumo.}
+Operadoras de cartões de crédito lidam com grandes volumes transacionais sem rótulos prévios de fraude, exigindo métodos não supervisionados para separar perfis de consumo e isolar anomalias. Este artigo aplica a metodologia KDD à base \texttt{base04\_cartao\_alta\_dimensao.csv} ($5.000$ clientes e $37$ variáveis). O pipeline inclui \textit{One-Hot Encoding} para variáveis nominais, poda de multicolinearidade ($|r| > 0,90$, removendo $8$ atributos), filtro de outliers extremos ($4,0 \times \text{IQR}$, isolando $356$ registros), normalização com \texttt{RobustScaler} e redução dimensional via PCA ($64,43\%$ da variância em $3$ componentes). Três algoritmos são avaliados: K-Means como \textit{baseline} ($k = 4$, Calinski-Harabasz $= 4.244,4$, Silhouette $= 0,4183$), DBSCAN para detecção de possíveis fraudes por densidade ($\varepsilon = 0,75$, $\text{min\_samples} = 15$, isolando $232$ anomalias) e Modelos de Mistura Gaussiana (GMM, $k = 4$, $\text{BIC} = 49.963,7$) para segmentação probabilística (\textit{soft clustering}), mapeando quatro perfis e $193$ clientes híbridos ($P_{\max} < 0,80$).
+\normalsize
+
+\section{Introdução}
+
+A operação de meios de pagamento exige o monitoramento contínuo do comportamento financeiro dos titulares para equilibrar a rentabilidade da carteira de crédito e a prevenção de perdas por fraude. Na prática operacional, as bases transacionais raramente possuem rótulos prévios indicando invasão de conta (\textit{account takeover}), clonagem ou autofinanciamento fraudulento, tornando indispensável o aprendizado não supervisionado.
+
+Neste trabalho, analisamos a base exclusiva \texttt{base04\_cartao\_alta\_dimensao.csv}, composta por $5.000$ clientes e $37$ atributos que descrevem limites, gastos em $3$ e $12$ meses, frequência de transações em $30$ e $90$ dias, estornos, atrasos, parcelamentos, canais de captura, lojistas, saques no crédito, compras na madrugada e alterações cadastrais. A marca estrutural desta base é a **alta dimensionalidade combinada à forte colinearidade e assimetria positiva (cauda longa)**. Em alta dimensão, a razão entre a distância do ponto mais distante e a do mais próximo tende a $1$ (maldição da dimensionalidade), degradando agrupadores geométricos \cite{jolliffe2002}. Além disso, limites de até R\$ $98.888,34$ frente à mediana de R\$ $7.887,75$ distorcem escalonadores baseados em extremos ou médias.
+
+Estruturamos a solução sob a metodologia KDD (\textit{Knowledge Discovery in Databases}), encadeando análise exploratória, poda de colinearidade, remoção de distorções severas, escalonamento com \texttt{RobustScaler}, projeção via PCA e modelagem comparativa com **K-Means** (\textit{baseline}), **DBSCAN** (detecção de fraudes por densidade) e **GMM** (segmentação probabilística). O código e a base limpa encontram-se no GitHub: \url{https://github.com/caioceo/unsupervised-fraud-detection}.
+
+\section{Revisão da Literatura}
+
+O processo KDD, formalizado por Fayyad et al. \cite{fayyad1996}, define que a validade dos padrões extraídos na mineração de dados depende diretamente das etapas prévias de seleção, pré-processamento e transformação. Em bases financeiras não supervisionadas, atributos em escalas incompatíveis ou altamente correlacionados dominam o cálculo de distância e ocultam variáveis de risco.
+
+Na literatura nacional sobre agrupamento de consumidores, Santos \cite{santos2023}, em estudo conduzido na UNIFESP, investigou a segmentação comportamental de clientes comparando os algoritmos K-Means e DBSCAN sob métricas de frequência e valor monetário. O autor evidenciou que o K-Means particiona eficazmente os grupos regulares para ações de relacionamento, ao passo que o DBSCAN aglutina a massa densa e isola observações periféricas como ruído, demonstrando a complementaridade funcional entre partição por centróides e conectividade por densidade.
+
+No segmento bancário, Esteves e Gioia \cite{esteves2025}, em artigo publicado na \textit{Revista E\&S}, aplicaram clusterização não supervisionada sobre variáveis financeiras, comportamentais e cadastrais para segmentar clientes bancários. O trabalho destacou a importância de combinar métricas internas --- WCSS (Método do Cotovelo), coeficiente de Silhouette \cite{rousseeuw1987}, Calinski-Harabasz e Davies-Bouldin --- com a interpretabilidade gerencial, separando clientes de maior vulnerabilidade financeira, perfis intermediários e titulares de alto valor econômico.
+
+Para atender simultaneamente à detecção de fraudes e à segmentação flexível na Base 04, superamos duas restrições do K-Means \cite{macqueen1967}: (i) a incapacidade de isolar anomalias, resolvida pelo DBSCAN \cite{ester1996}, que rotula pontos em regiões esparsas como ruído ($\text{cluster} = -1$); e (ii) a imposição de fronteiras esféricas rígidas (\textit{hard clustering}), superada pelos Modelos de Mistura Gaussiana (GMM) ajustados via algoritmo EM \cite{dempster1977,reynolds2009}, que estimam matrizes de covariância elípticas ($\boldsymbol{\Sigma}_k$) e probabilidades contínuas de pertencimento $P(c_k \mid \mathbf{x}_i)$.
+
+\section{Metodologia}
+
+\subsection{Pipeline KDD}
+
+O pipeline experimental foi implementado em cinco estágios sequenciais do método KDD \cite{fayyad1996}: (1) \textbf{Seleção}: leitura da base bruta, inspeção de tipos/nulos e descarte da chave primária \texttt{id\_cliente}; (2) \textbf{Análise Exploratória (EDA)}: diagnóstico de assimetria, caudas longas e distribuição por canais e lojistas; (3) \textbf{Tratamento de Dados}: codificação categórica via \textit{One-Hot Encoding}, remoção de outliers extremos ($4,0 \times \text{IQR}$) e padronização com \texttt{RobustScaler}; (4) \textbf{Seleção de Atributos e Transformação}: corte de multicolinearidade ($|r| > 0,90$) e compressão ortogonal via PCA; e (5) \textbf{Mineração e Avaliação}: ajuste do \textit{baseline} K-Means, do detector de anomalias DBSCAN e do modelo probabilístico GMM.
+
+\subsection{Análise Exploratória de Dados (EDA)}
+
+A base contém $5.000$ registros e $37$ colunas ($19$ \texttt{float64}, $15$ \texttt{int64} e $3$ \texttt{object}), com $0$ valores nulos. A análise exploratória revela forte assimetria positiva nas variáveis financeiras e de risco:
+\begin{itemize}
+  \item \textbf{Crédito e Consumo}: \texttt{limite\_total\_credito} possui média de R\$ $10.225,10$, mas mediana de R\$ $7.887,75$ e máximo de R\$ $98.888,34$ (assimetria $2,41$). O uso do limite (\texttt{limite\_utilizado\_pct}) tem mediana de $29,20\%$ e $Q_3 = 54,73\%$, enquanto o \texttt{ticket\_medio} tem mediana de R\$ $97,57$ e máximo de R\$ $2.412,74$ (assimetria $2,39$).
+  \item \textbf{Indicadores de Risco}: Variáveis associadas a fraudes concentram-se em patamares baixos na carteira, mas exibem caudas severas: \texttt{qtd\_estornos\_12m} (mediana $1$, máx. $22$, assimetria $3,03$), \texttt{qtd\_saques\_credito\_12m} (mediana $1$, máx. $21$, assimetria $2,99$), \texttt{pct\_compras\_madrugada} (mediana $4,82\%$, máx. $58,02\%$) e \texttt{qtd\_alteracoes\_cadastrais\_12m} (até $11$ trocas/ano).
+  \item \textbf{Perfil Categórico}: Três tipos de lojista somam $63,5\%$ da carteira (\texttt{supermercado} $28,1\%$, \texttt{combustivel} $18,4\%$ e \texttt{restaurante} $17,0\%$). Nos canais, predominam \texttt{contactless} ($46,3\%$), \texttt{web} ($24,7\%$) e \texttt{telefone} ($18,0\%$).
+\end{itemize}
+
+\subsection{Tratamento de Dados}
+
+Cada escolha técnica no pré-processamento foi confrontada com métodos alternativos frente à distribuição da Base 04:
+
+\textbf{1. Dados Nulos e Identificador}: Sem valores ausentes ($0\%$), descartou-se qualquer imputação (média/KNN). A coluna \texttt{id\_cliente} foi removida por não carregar informação comportamental.
+
+\textbf{2. Variáveis Categóricas (\textit{One-Hot Encoding})}: Os atributos \texttt{tipo\_lojista\_predominante} ($7$ categorias) e \texttt{canal\_acesso\_predominante} ($5$ categorias) foram convertidos em $12$ variáveis binárias. \textbf{Por que não escolhemos \texttt{LabelEncoder} ou \texttt{OrdinalEncoder}}: são variáveis categóricas **nominais**, sem ordem intrínseca. Codificá-las com inteiros ($0$ a $6$) imporia uma hierarquia artificial na distância euclidiana (assumindo, por exemplo, que \texttt{viagem} $= 6$ dista seis vezes mais de \texttt{supermercado} $= 0$ do que \texttt{combustivel} $= 1$). Não utilizamos \texttt{TargetEncoder} pela ausência de rótulo supervisionado $y$.
+
+\textbf{3. Remoção de Outliers Extremos ($4,0 \times \text{IQR}$)}: Avaliamos o intervalo interquartil ($\text{IQR} = Q_3 - Q_1$) das variáveis numéricas. \textbf{Por que não escolhemos $1,5 \times \text{IQR}$ nem Z-Score}: em $26$ variáveis financeiras assimétricas, o corte clássico de $1,5 \times \text{IQR}$ descartaria $2.221$ clientes ($44,42\%$ da base), amputando perfis legítimos de maior renda. Já o Z-Score ($|z| > 3$) utiliza média e desvio-padrão, que sofrem efeito de mascaramento pela cauda longa. Aplicamos o corte de extremos $[Q_1 - 4,0\cdot\text{IQR},\; Q_3 + 4,0\cdot\text{IQR}]$, removendo $356$ registros com distorção univariada aberrante ($7,12\%$, separados para auditoria imediata) e retendo **$4.644$ clientes ($92,88\%$)** na base limpa.
+
+\textbf{4. Normalização com \texttt{RobustScaler}}: Padronizamos os atributos pela mediana e pelo IQR: $z_j = (x_j - \text{Mediana}(x_j)) / \text{IQR}(x_j)$. \textbf{Por que não escolhemos \texttt{MinMaxScaler} nem \texttt{StandardScaler}}: o \texttt{MinMaxScaler} divide pelo intervalo total ($x_{\max} - x_{\min}$); devido ao teto elevado do limite de crédito, ele esmagaria os valores pequenos e médios da maioria dos clientes em uma faixa ínfima próxima de zero. O \texttt{StandardScaler}, por sua vez, ainda sofre deslocamento pela assimetria residual da média e variância nas contagens de saques e estornos (Figura~\ref{fig:robust_pca}, topo).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\columnwidth]{../imagens/fig06_comparacao_robust_scaler.png}\\[3pt]
+  \includegraphics[width=0.98\columnwidth]{../imagens/fig07_pca_variancia_explicada.png}
+  \caption{Topo: alinhamento das escalas após \texttt{RobustScaler}. Base: variância explicada individual e acumulada pelos componentes principais (PCA).}
+  \label{fig:robust_pca}
+\end{figure}
+
+\subsection{Seleção de Atributos e Redução de Dimensionalidade}
+
+A matriz de correlação de Pearson identificou forte multicolinearidade entre variáveis temporais de gasto e volume, como \texttt{gasto\_medio\_mensal\_3m} $\leftrightarrow$ \texttt{gasto\_medio\_mensal\_12m} ($r = 0,9862$), \texttt{qtd\_transacoes\_30d} $\leftrightarrow$ \texttt{qtd\_transacoes\_90d} ($r = 0,9858$) e \texttt{limite\_utilizado\_pct} $\leftrightarrow$ \texttt{gasto\_medio\_mensal\_3m} ($r = 0,9581$). Aplicamos corte em $|r| > 0,90$, eliminando **$8$ variáveis redundantes** (\texttt{gasto\_medio\_mensal\_3m}, \texttt{gasto\_medio\_mensal\_12m}, \texttt{qtd\_transacoes\_90d}, \texttt{taxa\_estorno\_pct}, \texttt{qtd\_atrasos\_12m}, \texttt{pct\_compras\_internacionais}, \texttt{qtd\_dispositivos\_distintos\_90d} e \texttt{pct\_limite\_comprometido\_parcelas}). \textbf{Por que eliminá-las}: manter atributos quase colineares multiplica artificialmente o peso de um único fator latente na distância euclidiana.
+
+Sobre as $38$ colunas resultantes ($26$ numéricas e $12$ binárias), aplicamos o **PCA**, retendo os **$3$ primeiros componentes principais**, que sintetizam **$64,43\%$ da variância global** ($\text{PC1} = 35,05\%$ ligado a saques no crédito, parcelamentos e idade da conta; $\text{PC2} = 17,26\%$ ligado a limite utilizado, compras na madrugada e trocas cadastrais; e $\text{PC3} = 12,11\%$ ligado a pagamento mínimo e frequência em $30$ dias), conforme a Figura~\ref{fig:robust_pca} (base). \textbf{Por que não escolhemos t-SNE ou UMAP}: por serem projeções não lineares estocásticas voltadas apenas à visualização, t-SNE e UMAP deformam densidades locais e distâncias globais, invalidando o cálculo de vizinhança do DBSCAN e a covariância do GMM.
+
+\subsection{Escolha dos Modelos, Baseline e Uso Operacional}
+
+Selecionamos três algoritmos de naturezas distintas e complementares frente ao perfil da Base 04:
+\begin{enumerate}
+  \item \textbf{Baseline -- K-Means (Particional)}: minimiza a inércia intracluster $\text{WCSS} = \sum_{k=1}^{K}\sum_{\mathbf{x}_i \in S_k}\|\mathbf{x}_i - \boldsymbol{\mu}_k\|^2$ \cite{macqueen1967}. Estabelece a referência de partição rígida via Método do Cotovelo, mas assume grupos esféricos e absorve anomalias nos grupos regulares.
+  \item \textbf{Detecção de Fraudes -- DBSCAN (Densidade)}: define clusters como regiões densas com ao menos $\text{min\_samples}$ vizinhos dentro do raio $\varepsilon$ \cite{ester1996}. Observações em regiões esparsas recebem o rótulo $-1$, isolando combinações multivariadas fraudulentas sem forçá-las a um centróide.
+  \item \textbf{Segmentação de Clientes -- GMM (Probabilístico)}: modela a carteira como mistura de $K$ gaussianas $p(\mathbf{x}_i) = \sum_{k=1}^{K}\pi_k \mathcal{N}(\mathbf{x}_i \mid \boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k)$ com matriz de covariância completa (\texttt{full}) \cite{dempster1977,reynolds2009}. Permite que um cliente pertença simultaneamente a mais de um grupo com probabilidade a posteriori $\gamma_{ik} = P(c_k \mid \mathbf{x}_i)$, capturando perfis em transição.
+\end{enumerate}
+
+\subsection{Métricas de Avaliação e Como Interpretá-las}
+
+Como a base não possui rótulos de fraude, a qualidade dos agrupamentos é validada por métricas internas geométricas, de densidade e probabilísticas:
+\begin{itemize}
+  \item \textbf{WCSS / Inércia (K-Means)}: mede a distância interna dos clientes ao centro do seu grupo. \textit{Como ler}: valores menores indicam grupos mais compactos; escolhe-se o ponto de ``cotovelo'', onde adicionar novos grupos traz pouco ganho.
+  \item \textbf{Coeficiente de Silhouette} ($[-1, +1]$): compara a proximidade do cliente ao seu próprio grupo com a distância ao grupo vizinho \cite{rousseeuw1987}. \textit{Como ler}: **quanto mais próximo de $+1$, melhor** (acima de $0,40$ em dados reais indica boa separação; próximo de $0$ indica sobreposição).
+  \item \textbf{Índice de Davies-Bouldin (DB)}: razão entre a dispersão interna e a distância entre clusters. \textit{Como ler}: **quanto menor (mais próximo de $0$), melhor** e menos sobrepostos são os grupos.
+  \item \textbf{Índice de Calinski-Harabasz (CH)}: razão entre a variância entre grupos e a variância interna. \textit{Como ler}: **quanto maior o valor, melhor** e mais bem definidos são os clusters.
+  \item \textbf{Taxa de Ruído e Razão de Isolamento (DBSCAN)}: medem a fração de anomalias ($\text{cluster} = -1$) e quantas vezes elas estão mais distantes do $15^\circ$ vizinho do que um cliente normal. \textit{Como ler}: uma taxa de ruído entre $1\%$ e $5\%$ com razão de isolamento $> 2\times$ confirma que as suspeitas de fraude estão de fato isoladas em regiões esparsas.
+  \item \textbf{BIC, AIC e Certeza a Posteriori (GMM)}: o BIC e o AIC medem o ajuste probabilístico penalizando o excesso de parâmetros, enquanto $\overline{P_{\max}}$ mede a probabilidade média do grupo vencedor. \textit{Como ler}: **quanto menor o BIC/AIC, melhor** é o número de grupos sem sobreajuste; clientes com $P_{\max} < 0,80$ indicam perfis híbridos na fronteira entre dois hábitos de consumo.
+\end{itemize}
+
+
+\end{document}
